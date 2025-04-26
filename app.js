@@ -1,40 +1,50 @@
 const express = require('express');
 const app = express();
 
-// --- NEW CODE: START ---
-// Load environment variables from .env file
+// Load environment variables from .env file (primarily for local development)
 require('dotenv').config();
 
 // Import the Pool object from the pg library
 const { Pool } = require('pg');
 
-// Check if the DATABASE_URL is set
+// Ensure the DATABASE_URL environment variable is set.
+// IMPORTANT: This should now contain the Supabase POOLER connection string.
 if (!process.env.DATABASE_URL) {
   console.error("Error: DATABASE_URL environment variable is not set.");
-  process.exit(1); // Exit the application if DB URL is missing
+  console.error("Please ensure it's set and contains the Supabase POOLER connection string.");
+  process.exit(1); // Exit if the critical variable is missing
 }
 
-// Create a new PostgreSQL connection pool using the connection URI
+// Create a new PostgreSQL connection pool
+console.log("Configuring database pool..."); // Add log for clarity
 const pool = new Pool({
+  // Use the connection string provided by the environment variable
+  // This should be the POOLER URI (e.g., postgresql://user:pass@host:port/db)
   connectionString: process.env.DATABASE_URL,
-  // Supabase typically requires SSL, but may not reject unauthorized connections
-  // depending on your network setup. Adjust if needed.
-  // ssl: {
-  //   rejectUnauthorized: false // Use with caution in production
-  // }
-});
 
-// Optional: Test the database connection on startup
-pool.query('SELECT NOW()', (err, res) => {
-  if (err) {
-    console.error('Error connecting to the database:', err.stack);
-  } else {
-    console.log('Successfully connected to the database at:', res.rows[0].now);
+  // Configure SSL settings for Supabase Pooler connection
+  ssl: {
+    // Allow connections even if the certificate chain cannot be fully verified.
+    // This is often necessary for poolers/proxies that might use intermediate
+    // or self-signed certificates not in the default Node.js trust store.
+    rejectUnauthorized: false // !!! SECURITY NOTE: Disables certificate validation. Use with caution. !!!
   }
 });
 
-// --- NEW CODE: END ---
+// Test the database connection on startup
+console.log("Attempting initial database connection test...");
+pool.query('SELECT NOW()', (err, res) => {
+  if (err) {
+    // Provide more context in the error message
+    console.error('Error connecting to the database pool during startup test:', err.stack);
+    // Optional: Consider exiting if the initial connection fails critically
+    // process.exit(1);
+  } else {
+    console.log('Successfully connected to the database pool at:', res.rows[0].now);
+  }
+});
 
+// --- REST OF THE APPLICATION CODE ---
 
 // Use PORT from environment variables or default to 10000
 const port = process.env.PORT || 10000;
@@ -44,13 +54,8 @@ app.get('/', (req, res) => {
   res.send('Hello World!');
 });
 
-
-// --- NEW CODE: START ---
 // Define the '/rules' endpoint
 app.get('/rules', async (req, res) => {
-  // Define the SQL query to join the three tables
-  // Using aliases (a, rw, rt) for clarity and to avoid column name conflicts (like 'id')
-  // Selecting specific columns with aliases makes the output predictable.
   const sqlQuery = `
     SELECT
         a.id AS asset_id,
@@ -94,9 +99,6 @@ app.get('/rules', async (req, res) => {
     }
   }
 });
-
-// --- NEW CODE: END ---
-
 
 // Start server, bind to 0.0.0.0 for Render (or similar platforms)
 app.listen(port, '0.0.0.0', () => {
