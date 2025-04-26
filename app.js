@@ -20,7 +20,7 @@ console.log("Configuring database pool..."); // Add log for clarity
 const pool = new Pool({
   // Use the connection string provided by the environment variable
   // This should be the POOLER URI (e.g., postgresql://user:pass@host:port/db)
-  connectionString: process.env.DATABASE_URL,
+  connectionString: "postgresql://postgres.zyuusockfwqsvnftfuyj:myTestDb1234@aws-0-us-east-2.pooler.supabase.com:5432/postgres",
 
   // Configure SSL settings for Supabase Pooler connection
   ssl: {
